@@ -78,34 +78,34 @@ class VerticalLandingEnv(gym.Env):
         self.start_height = 1000.0
         self.start_speed = 80.0
         self.vel_state = True    # Add velocity info to state
-        # ROCKET
+        # ROCKET PARAMETERS
         self.gimbal_threshold = 0.4
-        self.min_throttle = 0.4
         self.main_engine_power = 1600 * self.scale_s
-        self.side_engine_power = 100 / FPS * self.scale_s
+        self.min_throttle = 0.4
         self.rocket_width = 3.66 * self.scale_s
         self.rocket_height = self.rocket_width / 3.7 * 47.9
         self.engine_height = self.rocket_width * 0.5
         self.engine_width = self.engine_height * 0.7
+        self.side_engine_power = 100 / FPS * self.scale_s
         self.thruster_height = self.rocket_height * 0.86
-        # LEGS
-        self.leg_length = self.rocket_width * 2.2
+        # LEG PARAMETERS
         self.base_angle = -0.27
-        self.spring_angle = 0.27
         self.leg_away = self.rocket_width / 2
-        # SHIP
+        self.leg_length = self.rocket_width * 2.2
+        self.spring_angle = 0.27
+        # SHIP PARAMETERS
         self.ship_height = self.rocket_width
         self.ship_width = self.ship_height * 40
-        # VIEWPORT
+        # VIEWPORT PARAMETERS
         self.viewport_h = 720
         self.viewport_w = 500
         self.H = 1.1 * self.start_height * self.scale_s
         self.W = float(self.viewport_w) / self.viewport_h * self.H
-        # SMOKE FOR VISUALS
+        # SMOKE FOR VISUALS PARAMETERS
         self.max_smoke_lifetime = 2 * FPS
         self.mean = np.array([-0.034, -0.15, -0.016, 0.0024, 0.0024, 0.137, -0.02, -0.01, -0.8, 0.002])
         self.var = np.sqrt(np.array([0.08, 0.33, 0.0073, 0.0023, 0.0023, 0.8, 0.085, 0.0088, 0.063, 0.076]))
-
+        # GENERAL PARAMETERS
         self._seed()
         self.engine = None
         self.episode_number = 0
@@ -204,10 +204,6 @@ class VerticalLandingEnv(gym.Env):
                 gridfin.set_color(0.25, 0.25, 0.25)
                 self.gridfins.append(gridfin)
         if self.stepnumber % round(FPS / 10) == 0 and self.power > 0:
-            # total_lifetime = self.max_smoke_lifetime * self.power
-            # current_lifetime = 0
-            # size = self.power * (1 + 0.2 * np.random.random())
-            # s = [total lifetime, current lifetime, size, np.array(self.lander.position) + self.power * self.rocket_width * 10 * np.array((np.sin(self.lander.angle + self.gimbal), -np.cos(self.lander.angle + self.gimbal))) + self.power * 5 * (np.random.random(2) - 0.5)]    # position
             s = [self.max_smoke_lifetime * self.power,  # total lifetime
                  0,  # current lifetime
                  self.power * (1 + 0.2 * np.random.random()),  # size
@@ -423,7 +419,7 @@ class VerticalLandingEnv(gym.Env):
                  (self.gimbal / self.gimbal_threshold)]
         if self.vel_state:
             state.extend([vel_l[0], vel_l[1], vel_a])
-        # REWARD BEGIN -----
+        # REWARD BEGINS -----
         # state variables for reward
         distance = np.linalg.norm((3 * x_distance, y_distance))    # weight x position more
         speed = np.linalg.norm(vel_l)
@@ -457,8 +453,7 @@ class VerticalLandingEnv(gym.Env):
         elif not groundcontact:
             reward -= 0.25 / FPS
         reward = np.clip(reward, -1, 1)
-        # REWARD END -----
+        # REWARD ENDS -----
         self.stepnumber += 1
         state = (state - self.mean[:len(state)]) / self.var[:len(state)]
         return np.array(state), reward, done, {}
-

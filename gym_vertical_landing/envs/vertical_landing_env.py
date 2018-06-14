@@ -12,7 +12,7 @@ The state consists of the following variables:
     - second leg ground contact indicator
     - throttle
     - engine gimbal
-If self.vel_state is set to true, the velocities values are included:
+If vel_state is set to true, the velocities values are included:
     - x velocity
     - y velocity
     - angular velocity
@@ -30,7 +30,7 @@ Discrete Control Inputs:
     - use second control thruster
     - no action
 
-self.continuous Control Inputs:
+Continuous Control Inputs:
     - gimbal (left/right)
     - throttle (up/down)
     - control thruster (left/right)
@@ -42,7 +42,9 @@ import gym.spaces as spaces
 import gym.utils.seeding
 import numpy as np
 
+
 FPS = 60
+
 
 class ContactDetector(Box2D.b2ContactListener):
 
@@ -65,6 +67,7 @@ class ContactDetector(Box2D.b2ContactListener):
         for i in range(2):
             if self.env.legs[i] in [contact.fixtureA.body, contact.fixtureB.body]:
                 self.env.legs[i].ground_contact = False
+
 
 class VerticalLandingEnv(gym.Env):
 
@@ -117,19 +120,24 @@ class VerticalLandingEnv(gym.Env):
         self.world = Box2D.b2World()
         high = np.array([1, 1, 1, 1, 1, 1, 1, np.inf, np.inf, np.inf], dtype=np.float32)
         low = -high
+
         if not self.vel_state:
             high = high[0:7]
             low = low[0:7]
+
         self.observation_space = spaces.Box(low, high, dtype=np.float32)
+
         if self.continuous:
             self.action_space = spaces.Box(-1.0, +1.0, (3,), dtype=np.float32)
         else:
             self.action_space = spaces.Discrete(7)
+
         self.reset()
 
     def _destroy(self):
         if not self.water:
             return
+
         self.world.contactListener = None
         self.world.DestroyBody(self.containers[0])
         self.world.DestroyBody(self.containers[1])
@@ -155,6 +163,7 @@ class VerticalLandingEnv(gym.Env):
                 self.viewer.close()
                 self.viewer = None
             return
+
         if self.viewer is None:
             self.viewer = rendering.Viewer(self.viewport_w, self.viewport_h)
             self.viewer.set_bounds(0, self.W, 0, self.H)
@@ -167,6 +176,7 @@ class VerticalLandingEnv(gym.Env):
             engine = rendering.FilledPolygon(((0, 0),
                                               (self.engine_width / 2, -self.engine_height),
                                               (-self.engine_width / 2, -self.engine_height)))
+
             self.enginetrans = rendering.Transform()
             engine.add_attr(self.enginetrans)
             engine.add_attr(self.rockettrans)
@@ -177,6 +187,7 @@ class VerticalLandingEnv(gym.Env):
                                                  (-self.engine_width * 1.2, -self.engine_height * 5),
                                                  (0, -self.engine_height * 8),
                                                  (self.engine_width * 1.2, -self.engine_height * 5)))
+
             self.fire.set_color(*self.rgb(255, 230, 107))
             self.firescale = rendering.Transform(scale=(1, 1))
             self.firetrans = rendering.Transform(translation=(0, -self.engine_height))
@@ -188,21 +199,25 @@ class VerticalLandingEnv(gym.Env):
                                              (self.rocket_width * 3, self.thruster_height * 1.03),
                                              (self.rocket_width * 4, self.thruster_height * 1),
                                              (self.rocket_width * 3, self.thruster_height * 0.97)))
+
             smoke.set_color(*self.sky_color_half_transparent)
             self.smokescale = rendering.Transform(scale=(1, 1))
             smoke.add_attr(self.smokescale)
             smoke.add_attr(self.rockettrans)
             self.viewer.add_geom(smoke)
             self.gridfins = []
+
             for i in (-1, 1):
                 finpoly = ((i * self.rocket_width * 1.1, self.thruster_height * 1.01),
                            (i * self.rocket_width * 0.4, self.thruster_height * 1.01),
                            (i * self.rocket_width * 0.4, self.thruster_height * 0.99),
                            (i * self.rocket_width * 1.1, self.thruster_height * 0.99))
+
                 gridfin = rendering.FilledPolygon(finpoly)
                 gridfin.add_attr(self.rockettrans)
                 gridfin.set_color(0.25, 0.25, 0.25)
                 self.gridfins.append(gridfin)
+
         if self.stepnumber % round(FPS / 10) == 0 and self.power > 0:
             s = [self.max_smoke_lifetime * self.power,  # total lifetime
                  0,  # current lifetime
@@ -212,6 +227,7 @@ class VerticalLandingEnv(gym.Env):
                                                               -np.cos(self.lander.angle + self.gimbal)))
                  + self.power * 5 * (np.random.random(2) - 0.5)]  # position
             self.smoke.append(s)
+
         for s in self.smoke:
             s[1] += 1
             if s[1] > s[0]:
@@ -220,23 +236,28 @@ class VerticalLandingEnv(gym.Env):
             t = rendering.Transform(translation=(s[3][0], s[3][1] + self.H * s[1] / 2000))
             self.viewer.draw_circle(radius=0.05 * s[1] + s[2],
                                     color=self.sky_color + (1 - (2 * s[1] / s[0] - 1) ** 2) / 3 * (self.sky_color_half_transparent - self.sky_color)).add_attr(t)
+
         self.viewer.add_onetime(self.fire)
         for g in self.gridfins:
             self.viewer.add_onetime(g)
+
         for obj in self.drawlist:
             for f in obj.fixtures:
                 trans = f.body.transform
                 path = [trans * v for v in f.shape.vertices]
                 self.viewer.draw_polygon(path, color=obj.color1)
+
         for l in zip(self.legs, [-1, 1]):
             path = [self.lander.fixtures[0].body.transform * (l[1] * self.rocket_width / 2,
                     self.rocket_height / 8),
                     l[0].fixtures[0].body.transform * (l[1] * self.leg_length * 0.8, 0)]
             self.viewer.draw_polyline(path, color=self.ship.color1, linewidth=1 if self.start_height > 500 else 2)
+
         self.viewer.draw_polyline(((self.helipad_x2, self.terranheight + self.ship_height),
                                    (self.helipad_x1, self.terranheight + self.ship_height)),
                                     color=self.rgb(206, 206, 2),
                                     linewidth=1)
+
         self.rockettrans.set_translation(*self.lander.position)
         self.rockettrans.set_rotation(self.lander.angle)
         self.enginetrans.set_rotation(self.gimbal)
@@ -272,8 +293,9 @@ class VerticalLandingEnv(gym.Env):
                               (self.W, 0),
                               (self.W, self.terranheight),
                               (0, self.terranheight))),
-                friction=0.1,
-                restitution=0.0))
+                              friction=0.1,
+                              restitution=0.0))
+
         self.water.color1 = self.rgb(70, 96, 176)
         self.ship = self.world.CreateStaticBody(
             fixtures=Box2D.b2FixtureDef(
@@ -282,8 +304,9 @@ class VerticalLandingEnv(gym.Env):
                               (self.helipad_x2, self.terranheight),
                               (self.helipad_x2, self.terranheight + self.ship_height),
                               (self.helipad_x1, self.terranheight + self.ship_height))),
-                friction=0.5,
-                restitution=0.0))
+                              friction=0.5,
+                              restitution=0.0))
+
         self.containers = []
         for side in [-1, 1]:
             self.containers.append(self.world.CreateStaticBody(
@@ -294,9 +317,10 @@ class VerticalLandingEnv(gym.Env):
                                   (ship_pos + side * 0.95 * self.ship_width / 2 - side * self.ship_height,
                                    self.helipad_y + self.ship_height),
                                   (ship_pos + side * 0.95 * self.ship_width / 2 - side * self.ship_height, self.helipad_y))),
-                    friction=0.2,
-                    restitution=0.0)))
+                                  friction=0.2,
+                                  restitution=0.0)))
             self.containers[-1].color1 = self.rgb(206, 206, 2)
+
         self.ship.color1 = (0.2, 0.2, 0.2)
         initial_x = self.W / 2 + self.W * np.random.uniform(-0.3, 0.3)
         initial_y = self.H * 0.95
@@ -309,12 +333,13 @@ class VerticalLandingEnv(gym.Env):
                               (self.rocket_width / 2, 0),
                               (self.rocket_width / 2, self.rocket_height),
                               (-self.rocket_width / 2, self.rocket_height))),
-                density=1.0,
-                friction=0.5,
-                categoryBits=0x0010,
-                maskBits=0x001,
-                restitution=0.0))
+                              density=1.0,
+                              friction=0.5,
+                              categoryBits=0x0010,
+                              maskBits=0x001,
+                              restitution=0.0))
         self.lander.color1 = self.rgb(230, 230, 230)
+
         for i in [-1, +1]:
             leg = self.world.CreateDynamicBody(
                 position=(initial_x - i * self.leg_away, initial_y + self.rocket_width * 0.2),
@@ -326,11 +351,12 @@ class VerticalLandingEnv(gym.Env):
                                   (i * self.leg_length, 0),
                                   (i * self.leg_length, -self.leg_length / 20),
                                   (i * self.leg_length / 3, -self.leg_length / 7))),
-                    density=1,
-                    restitution=0.0,
-                    friction=0.2,
-                    categoryBits=0x0020,
-                    maskBits=0x001))
+                                  density=1,
+                                  restitution=0.0,
+                                  friction=0.2,
+                                  categoryBits=0x0020,
+                                  maskBits=0x001))
+
             leg.ground_contact = False
             leg.color1 = (0.25, 0.25, 0.25)
             rjd = Box2D.b2RevoluteJointDef(bodyA=self.lander,
@@ -354,12 +380,18 @@ class VerticalLandingEnv(gym.Env):
             else:
                 rjd.lowerAngle = 0
                 rjd.upperAngle = + self.spring_angle
+
             leg.joint = self.world.CreateJoint(rjd)
             leg.joint2 = self.world.CreateJoint(djd)
             self.legs.append(leg)
-        self.lander.linearVelocity = (-self.np_random.uniform(0, self.initial_random) * self.start_speed * (initial_x - self.W / 2) / self.W, -self.start_speed)
+
+        self.lander.linearVelocity = (
+            -self.np_random.uniform(0, self.initial_random) * \
+            self.start_speed * (initial_x - self.W / 2) / self.W, -self.start_speed)
+
         self.lander.angularVelocity = (1 + self.initial_random) * np.random.uniform(-1, 1)
         self.drawlist = self.legs + [self.water] + [self.ship] + self.containers + [self.lander]
+
         if self.continuous:
             return self.step([0, 0, 0])[0]
         else:
@@ -388,18 +420,23 @@ class VerticalLandingEnv(gym.Env):
                 self.force_dir = -1
             elif action == 5:    # right
                 self.force_dir = 1
+
         self.gimbal = np.clip(self.gimbal, -self.gimbal_threshold, self.gimbal_threshold)
         self.throttle = np.clip(self.throttle, 0.0, 1.0)
         self.power = 0 if self.throttle == 0.0 else self.min_throttle + self.throttle * (1 - self.min_throttle)
+
         # main engine force
         force_pos = (self.lander.position[0], self.lander.position[1])
         force = (-np.sin(self.lander.angle + self.gimbal) * self.main_engine_power * self.power,
                   np.cos(self.lander.angle + self.gimbal) * self.main_engine_power * self.power)
+
         self.lander.ApplyForce(force=force, point=force_pos, wake=False)
+
         # control thruster force
         force_pos_c = self.lander.position + self.thruster_height * np.array((np.sin(self.lander.angle), np.cos(self.lander.angle)))
         force_c = (-self.force_dir * np.cos(self.lander.angle) * self.side_engine_power,
                     self.force_dir * np.sin(self.lander.angle) * self.side_engine_power)
+
         self.lander.ApplyLinearImpulse(impulse=force_c, point=force_pos_c, wake=False)
         self.world.Step(1.0 / FPS, 60, 60)
         pos = self.lander.position
@@ -408,8 +445,10 @@ class VerticalLandingEnv(gym.Env):
         x_distance = (pos.x - self.W / 2) / self.W
         y_distance = (pos.y - self.shipheight) / (self.H - self.shipheight)
         angle = (self.lander.angle / np.pi) % 2
+
         if angle > 1:
             angle -= 2
+
         state = [2 * x_distance,
                  2 * (y_distance - 0.5),
                  angle,
@@ -417,8 +456,10 @@ class VerticalLandingEnv(gym.Env):
                  1.0 if self.legs[1].ground_contact else 0.0,
                  2 * (self.throttle - 0.5),
                  (self.gimbal / self.gimbal_threshold)]
+
         if self.vel_state:
             state.extend([vel_l[0], vel_l[1], vel_a])
+
         # REWARD BEGINS -----
         # state variables for reward
         distance = np.linalg.norm((3 * x_distance, y_distance))    # weight x position more
@@ -430,8 +471,10 @@ class VerticalLandingEnv(gym.Env):
         landed = self.legs[0].ground_contact and self.legs[1].ground_contact and speed < 0.1
         done = False
         reward = -fuelcost
+
         if outside or brokenleg:
             self.game_over = True
+
         if self.game_over:
             done = True
         else:
@@ -448,12 +491,15 @@ class VerticalLandingEnv(gym.Env):
             if self.landed_ticks == FPS:
                 reward = 1.0
                 done = True
+
         if done:
             reward += max(-1, 0 - 2 * (speed + distance + abs(angle) + abs(vel_a)))
         elif not groundcontact:
             reward -= 0.25 / FPS
+
         reward = np.clip(reward, -1, 1)
         # REWARD ENDS -----
+
         self.stepnumber += 1
         state = (state - self.mean[:len(state)]) / self.var[:len(state)]
         return np.array(state), reward, done, {}
